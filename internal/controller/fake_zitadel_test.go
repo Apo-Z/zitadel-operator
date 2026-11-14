@@ -15,6 +15,8 @@ type fakeZitadel struct {
 	seq      int
 	projects map[string]*fakeProject
 	calls    map[string]int
+	// noOrgRead simulates a service account without org.read.
+	noOrgRead bool
 }
 
 type fakeProject struct {
@@ -70,11 +72,16 @@ func (f *fakeZitadel) app(orgID, projectID, appID string) (*fakeApp, error) {
 }
 
 func (f *fakeZitadel) GetMyOrg(_ context.Context, orgID string) (*zitadel.Org, error) {
+	if f.noOrgRead {
+		return nil, &zitadel.Error{HTTPStatus: 403, Code: 7, Message: "No matching permissions found"}
+	}
 	if orgID == "" {
 		orgID = "org-1"
 	}
 	return &zitadel.Org{ID: orgID, Name: "ACME"}, nil
 }
+
+func (f *fakeZitadel) GetMyUserOrg(context.Context) (string, error) { return "org-1", nil }
 
 func (f *fakeZitadel) GetProject(_ context.Context, orgID, id string) (*zitadel.Project, error) {
 	f.mu.Lock()

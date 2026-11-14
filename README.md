@@ -103,7 +103,7 @@ Le chart Helm comme `config/default` peuvent directement être la source d'une `
 
 ### Identifiants Zitadel
 
-1. Dans la console Zitadel, créer un **service account** (machine user) et lui donner le rôle `ORG_OWNER` sur l'organisation (ou `ORG_PROJECT_CREATOR`).
+1. Dans la console Zitadel, créer un **service account** (machine user) et lui donner les droits selon l'un des modes décrits dans [Permissions du service account](#permissions-du-service-account).
 2. Lui générer une clé de type **JSON** et la stocker :
 
 ```bash
@@ -137,6 +137,29 @@ $ kubectl get zcon
 NAME   URL                        ORGANIZATION   READY
 main   https://auth.example.com   ACME           True
 ```
+
+### Permissions du service account
+
+Constat sur Zitadel v4.20.3 : au niveau organisation, **seul `ORG_OWNER`** donne les droits d'écriture sur les projets (`project.write`, `project.app.write`, `project.role.write`). `ORG_PROJECT_CREATOR` ne suffit pas : il permet de créer un projet, mais le créateur n'en devient pas membre et ne peut plus rien y faire (ni rôles, ni applications).
+
+Deux modes sont possibles :
+
+| Mode | Rôle(s) du service account | Ce que l'opérateur peut faire |
+|---|---|---|
+| **Complet** | `ORG_OWNER` sur l'organisation | créer / modifier / supprimer projets, rôles et applications |
+| **Moindre privilège** | aucun rôle d'organisation, `PROJECT_OWNER` sur chaque projet à gérer | gérer rôles et applications des projets existants ; pas de création de projet |
+
+**Mode moindre privilège**, pour chaque projet :
+
+1. Un administrateur crée le projet dans Zitadel (ex. `shop`).
+2. Dans le projet → *Members* (ou *Authorizations*) → ajouter le service account avec le rôle `PROJECT_OWNER`.
+3. Côté Kubernetes, au choix :
+   - un `ZitadelProject` portant **le même nom** (`spec.name: shop`) : il est adopté, ses rôles sont gérés. Mettre `deletionPolicy: Retain`, sinon supprimer la ressource supprime le projet (`PROJECT_OWNER` en a le droit) ;
+   - ou directement des `ZitadelApplication` avec `spec.projectId` + `spec.connectionRef`.
+
+La connexion est alors `Ready` avec le message *« Connected to Zitadel without org.read permission… »* et la colonne `ORGANIZATION` vide : l'opérateur détecte l'absence de `org.read` et récupère l'organisation via `/auth/v1/users/me`.
+
+Pour limiter l'impact d'un `ORG_OWNER`, une alternative est une **organisation dédiée** aux projets gérés par l'opérateur (sans utilisateurs) : le service account y est `ORG_OWNER`, et les utilisateurs des autres organisations accèdent aux applications via des *project grants*.
 
 ## Utilisation avec ArgoCD
 
@@ -237,6 +260,8 @@ L'opérateur utilise l'API REST **management v1** de Zitadel (toujours disponibl
 | `e2e` | PR, push | `make test-e2e` (Zitadel en docker compose + envtest) |
 | `image` | PR (build seul), push `main` et tags | image multi-arch `linux/amd64,linux/arm64` sur `ghcr.io/apo-z/zitadel-operator` |
 | `chart` | tags `v*` | package du chart (version = tag) et push OCI sur `oci://ghcr.io/apo-z/charts` |
+
+`.github/workflows/bump-chart.yaml` : à la publication d'une **release GitHub** `vX.Y.Z`, met `version` et `appVersion` du chart à `X.Y.Z` dans `Chart.yaml` et pousse le commit sur la branche par défaut.
 
 Release : `git tag v0.1.0 && git push --tags` → image `ghcr.io/apo-z/zitadel-operator:v0.1.0` + chart `0.1.0` qui la référence.
 

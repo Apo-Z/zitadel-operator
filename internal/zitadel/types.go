@@ -93,6 +93,7 @@ type AppKey struct {
 // orgID may be empty to use the organization of the service account.
 type API interface {
 	GetMyOrg(ctx context.Context, orgID string) (*Org, error)
+	GetMyUserOrg(ctx context.Context) (string, error)
 
 	GetProject(ctx context.Context, orgID, projectID string) (*Project, error)
 	FindProjectByName(ctx context.Context, orgID, name string) (*Project, error)

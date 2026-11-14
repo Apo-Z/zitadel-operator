@@ -1,3 +1,9 @@
 bin/
 cover.out
 test/e2e/machinekey/
+
+# Zitadel service account keys / tokens: never commit them
+key.json
+*-key.json
+sa.json
+pat.txt

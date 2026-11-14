@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -127,6 +128,18 @@ func TestConnection(t *testing.T) {
 	var conn zv1.ZitadelConnection
 	e.get(&conn, "", "main")
 	if conn.Status.OrganizationID != "org-1" || ready(conn.Status.Conditions).Status != metav1.ConditionTrue {
+		t.Fatalf("unexpected status %+v", conn.Status)
+	}
+}
+
+func TestConnectionWithoutOrgRead(t *testing.T) {
+	e := newEnv(t)
+	e.z.noOrgRead = true
+	e.reconcile(e.conn, "", "main")
+	var conn zv1.ZitadelConnection
+	e.get(&conn, "", "main")
+	c := ready(conn.Status.Conditions)
+	if conn.Status.OrganizationID != "org-1" || c.Status != metav1.ConditionTrue || !strings.Contains(c.Message, "PROJECT_OWNER") {
 		t.Fatalf("unexpected status %+v", conn.Status)
 	}
 }

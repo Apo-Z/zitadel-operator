@@ -8,6 +8,7 @@
 package e2e
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -329,12 +330,116 @@ func TestE2E(t *testing.T) {
 		if !apierrors.IsNotFound(err) {
 			return fmt.Errorf("CR still exists (%v)", err)
 		}
+		for _, name := range []string{"shop-web", "shop-api", "shop-spa"} {
+			var a zv1.ZitadelApplication
+			if err := k.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, &a); !apierrors.IsNotFound(err) {
+				return fmt.Errorf("ZitadelApplication %s still exists (finalizers %v, conditions %+v, err %v)", name, a.Finalizers, a.Status.Conditions, err)
+			}
+		}
 		_, err = z.GetProject(ctx, orgID, proj.Status.ProjectID)
 		if zitadel.IsNotFound(err) {
 			return nil
 		}
 		return fmt.Errorf("still exists in zitadel (%v)", err)
 	})
+
+	testLeastPrivilege(t, ctx, k, zitadelURL, strings.TrimSpace(string(pat)))
+}
+
+// adminCall performs a raw management API call with the admin PAT.
+func adminCall(t *testing.T, zitadelURL, pat, method, path string, in any) map[string]any {
+	t.Helper()
+	b, _ := json.Marshal(in)
+	req, _ := http.NewRequest(method, strings.TrimSuffix(zitadelURL, "/")+path, bytes.NewReader(b))
+	req.Header.Set("Authorization", "Bearer "+pat)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	must(t, err)
+	defer resp.Body.Close()
+	var out map[string]any
+	_ = json.NewDecoder(resp.Body).Decode(&out)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("%s %s: HTTP %d %v", method, path, resp.StatusCode, out)
+	}
+	return out
+}
+
+// testLeastPrivilege runs the operator with a service account that has no
+// organization role, only PROJECT_OWNER on a project created by an admin.
+func testLeastPrivilege(t *testing.T, ctx context.Context, k client.Client, zitadelURL, adminPAT string) {
+	suffix := fmt.Sprint(time.Now().UnixNano())
+	user := adminCall(t, zitadelURL, adminPAT, http.MethodPost, "/management/v1/users/machine",
+		map[string]any{"userName": "op-limited-" + suffix, "name": "op-limited", "accessTokenType": "ACCESS_TOKEN_TYPE_BEARER"})
+	userID := user["userId"].(string)
+	limitedPAT := adminCall(t, zitadelURL, adminPAT, http.MethodPost, "/management/v1/users/"+userID+"/pats", map[string]any{})["token"].(string)
+	projectName := "limited-" + suffix
+	projectID := adminCall(t, zitadelURL, adminPAT, http.MethodPost, "/management/v1/projects", map[string]any{"name": projectName})["id"].(string)
+	adminCall(t, zitadelURL, adminPAT, http.MethodPost, "/management/v1/projects/"+projectID+"/members",
+		map[string]any{"userId": userID, "roles": []string{"PROJECT_OWNER"}})
+
+	must(t, k.Create(ctx, &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "zitadel-limited", Namespace: "zitadel-operator"},
+		Data:       map[string][]byte{"pat": []byte(limitedPAT)},
+	}))
+	must(t, k.Create(ctx, &zv1.ZitadelConnection{
+		ObjectMeta: metav1.ObjectMeta{Name: "limited"},
+		Spec: zv1.ZitadelConnectionSpec{
+			URL:                  zitadelURL,
+			CredentialsSecretRef: zv1.CredentialsSecretReference{Name: "zitadel-limited", Namespace: "zitadel-operator", Key: "pat"},
+		},
+	}))
+	eventually(t, "limited connection", func() error {
+		var c zv1.ZitadelConnection
+		if err := k.Get(ctx, client.ObjectKey{Name: "limited"}, &c); err != nil {
+			return err
+		}
+		return isReady(c.Status.Conditions)
+	})
+
+	// The existing project is adopted by name and kept on deletion.
+	proj := &zv1.ZitadelProject{
+		ObjectMeta: metav1.ObjectMeta{Name: "limited", Namespace: ns},
+		Spec: zv1.ZitadelProjectSpec{
+			ConnectionRef:  zv1.ConnectionReference{Name: "limited"},
+			Name:           projectName,
+			Roles:          []zv1.ProjectRole{{Key: "reader"}},
+			DeletionPolicy: zv1.DeletionPolicyRetain,
+		},
+	}
+	must(t, k.Create(ctx, proj))
+	app := &zv1.ZitadelApplication{
+		ObjectMeta: metav1.ObjectMeta{Name: "limited-web", Namespace: ns},
+		Spec: zv1.ZitadelApplicationSpec{
+			ProjectRef: &zv1.LocalObjectReference{Name: "limited"},
+			OIDC:       &zv1.OIDCConfig{RedirectURIs: []string{"https://shop.example.com/callback"}},
+		},
+	}
+	must(t, k.Create(ctx, app))
+	eventually(t, "limited application", func() error {
+		if err := k.Get(ctx, client.ObjectKey{Namespace: ns, Name: "limited-web"}, app); err != nil {
+			return err
+		}
+		return isReady(app.Status.Conditions)
+	})
+	must(t, k.Get(ctx, client.ObjectKey{Namespace: ns, Name: "limited"}, proj))
+	if proj.Status.ProjectID != projectID {
+		t.Fatalf("project not adopted: %s != %s", proj.Status.ProjectID, projectID)
+	}
+	var s corev1.Secret
+	must(t, k.Get(ctx, client.ObjectKey{Namespace: ns, Name: "limited-web"}, &s))
+	checkClientSecret(t, zitadelURL, string(s.Data["CLIENT_ID"]), string(s.Data["CLIENT_SECRET"]), true)
+
+	must(t, k.Delete(ctx, app))
+	must(t, k.Delete(ctx, proj))
+	eventually(t, "limited cleanup", func() error {
+		err := k.Get(ctx, client.ObjectKey{Namespace: ns, Name: "limited"}, &zv1.ZitadelProject{})
+		if !apierrors.IsNotFound(err) {
+			return fmt.Errorf("CR still exists (%v)", err)
+		}
+		return nil
+	})
+	// Retain: the project still exists in Zitadel.
+	adminCall(t, zitadelURL, adminPAT, http.MethodGet, "/management/v1/projects/"+projectID, nil)
 }
 
 func must(t *testing.T, err error) {

@@ -72,7 +72,8 @@ spec:
               credentialsSecretRef:
                 description: |-
                   CredentialsSecretRef references the credentials of a Zitadel service account
-                  that has (at least) the ORG_OWNER or ORG_PROJECT_CREATOR role.
+                  with either the ORG_OWNER role on the organization (projects are created by
+                  the operator) or the PROJECT_OWNER role on existing projects (least privilege).
                 properties:
                   key:
                     default: key.json

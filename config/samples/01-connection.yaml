@@ -1,6 +1,7 @@
 # Installed once by the platform team (cluster-scoped).
-# The Secret holds the JSON key of a Zitadel service account with the
-# ORG_OWNER (or ORG_PROJECT_CREATOR + ORG_PROJECT_OWNER) role:
+# The Secret holds the JSON key of a Zitadel service account with either:
+#  - ORG_OWNER on the organization: the operator creates the projects, or
+#  - PROJECT_OWNER on existing projects only (least privilege, see README).
 #   kubectl -n zitadel-operator create secret generic zitadel-operator-credentials \
 #     --from-file=key.json=./service-account.json
 apiVersion: zitadel.zitadel-operator.io/v1alpha1

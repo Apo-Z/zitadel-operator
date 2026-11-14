@@ -1,0 +1,27 @@
+apiVersion: zitadel.zitadel-operator.io/v1alpha1
+kind: ZitadelProject
+metadata:
+  name: shop
+  namespace: proflow
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  connectionRef: { name: main }
+  roles:
+    - key: admin
+    - key: customer
+---
+apiVersion: zitadel.zitadel-operator.io/v1alpha1
+kind: ZitadelApplication
+metadata:
+  name: shop-web
+  namespace: proflow
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  projectRef: { name: shop }
+  oidc:
+    redirectUris: [https://shop.example.com/auth/callback]
+    grantTypes: [AUTHORIZATION_CODE, REFRESH_TOKEN]
+  secret:
+    name: shop-oidc

@@ -40,7 +40,8 @@ type ZitadelConnectionSpec struct {
 	OrganizationID string `json:"organizationId,omitempty"`
 
 	// CredentialsSecretRef references the credentials of a Zitadel service account
-	// that has (at least) the ORG_OWNER or ORG_PROJECT_CREATOR role.
+	// with either the ORG_OWNER role on the organization (projects are created by
+	// the operator) or the PROJECT_OWNER role on existing projects (least privilege).
 	CredentialsSecretRef CredentialsSecretReference `json:"credentialsSecretRef"`
 
 	// InsecureSkipTLSVerify disables TLS certificate verification. Do not use in production.

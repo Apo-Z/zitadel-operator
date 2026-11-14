@@ -83,6 +83,7 @@ func (e *Error) Error() string {
 const (
 	codeNotFound           = 5
 	codeAlreadyExists      = 6
+	codePermissionDenied   = 7
 	codeFailedPrecondition = 9
 )
 
@@ -90,6 +91,12 @@ const (
 func IsNotFound(err error) bool {
 	var e *Error
 	return errors.As(err, &e) && (e.Code == codeNotFound || e.HTTPStatus == http.StatusNotFound)
+}
+
+// IsPermissionDenied reports whether err is a "permission denied" error.
+func IsPermissionDenied(err error) bool {
+	var e *Error
+	return errors.As(err, &e) && (e.Code == codePermissionDenied || e.HTTPStatus == http.StatusForbidden)
 }
 
 // IsAlreadyExists reports whether err is an "already exists" error.
@@ -194,6 +201,22 @@ func (c *Client) GetMyOrg(ctx context.Context, orgID string) (*Org, error) {
 		return nil, err
 	}
 	return &out.Org, nil
+}
+
+// GetMyUserOrg returns the organization the authenticated user belongs to.
+// It requires no permission (auth API).
+func (c *Client) GetMyUserOrg(ctx context.Context) (string, error) {
+	var out struct {
+		User struct {
+			Details struct {
+				ResourceOwner string `json:"resourceOwner"`
+			} `json:"details"`
+		} `json:"user"`
+	}
+	if err := c.do(ctx, http.MethodGet, "/auth/v1/users/me", "", nil, &out); err != nil {
+		return "", err
+	}
+	return out.User.Details.ResourceOwner, nil
 }
 
 // GetProject returns a project by ID.

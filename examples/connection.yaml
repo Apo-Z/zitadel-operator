@@ -1,0 +1,12 @@
+apiVersion: zitadel.zitadel-operator.io/v1alpha1
+kind: ZitadelConnection
+metadata:
+  name: main
+spec:
+  url: https://zitadel.noor-solutions.fr # issuer public, écrit dans les Secrets
+  internalURL: http://zitadel.zitadel.svc.cluster.local:8080 # appels API in-cluster
+  credentialsSecretRef:
+    name: zitadel-operator-credentials
+    namespace: zitadel-operator
+    key: key.json
+  allowedNamespaces: [] # optionnel, vide = tous
