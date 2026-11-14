@@ -1,0 +1,210 @@
+{{- if .Values.crds.install }}
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    {{- if .Values.crds.keep }}
+    helm.sh/resource-policy: keep
+    {{- end }}
+    controller-gen.kubebuilder.io/version: v0.23.0
+  name: zitadelprojects.zitadel.zitadel-operator.io
+spec:
+  group: zitadel.zitadel-operator.io
+  names:
+    categories:
+    - zitadel
+    kind: ZitadelProject
+    listKind: ZitadelProjectList
+    plural: zitadelprojects
+    shortNames:
+    - zproj
+    singular: zitadelproject
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.projectId
+      name: Project ID
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ZitadelProject is a project in Zitadel.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ZitadelProjectSpec defines the desired state of ZitadelProject.
+            properties:
+              connectionRef:
+                description: ConnectionRef references the ZitadelConnection to use.
+                properties:
+                  name:
+                    description: Name of the ZitadelConnection.
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+              deletionPolicy:
+                default: Delete
+                description: |-
+                  DeletionPolicy defines what happens in Zitadel when this object is deleted.
+                  Deleting a project also deletes all its applications in Zitadel.
+                enum:
+                - Delete
+                - Retain
+                type: string
+              hasProjectCheck:
+                description: HasProjectCheck requires the user's organization to be
+                  granted the project.
+                type: boolean
+              name:
+                description: |-
+                  Name of the project in Zitadel. Defaults to metadata.name.
+                  If a project with this name already exists in the organization, it is adopted.
+                type: string
+              organizationId:
+                description: OrganizationID overrides the organization of the connection.
+                type: string
+              projectRoleAssertion:
+                description: ProjectRoleAssertion adds the user roles to the tokens.
+                type: boolean
+              projectRoleCheck:
+                description: ProjectRoleCheck requires users to have a role on the
+                  project to authenticate.
+                type: boolean
+              roles:
+                description: |-
+                  Roles managed on the project. Roles created by the operator and later
+                  removed from this list are deleted from Zitadel; other roles are left untouched.
+                items:
+                  description: ProjectRole is a role defined on a Zitadel project.
+                  properties:
+                    displayName:
+                      description: DisplayName of the role. Defaults to Key.
+                      type: string
+                    group:
+                      description: Group of the role.
+                      type: string
+                    key:
+                      description: Key of the role, e.g. "admin".
+                      minLength: 1
+                      type: string
+                  required:
+                  - key
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - key
+                x-kubernetes-list-type: map
+            required:
+            - connectionRef
+            type: object
+          status:
+            description: ZitadelProjectStatus defines the observed state of ZitadelProject.
+            properties:
+              conditions:
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              connectionName:
+                description: ConnectionName used when the project was created (used
+                  for cleanup).
+                type: string
+              managedRoles:
+                description: ManagedRoles are the role keys created by the operator.
+                items:
+                  type: string
+                type: array
+              observedGeneration:
+                format: int64
+                type: integer
+              organizationId:
+                description: OrganizationID owning the project.
+                type: string
+              projectId:
+                description: ProjectID in Zitadel.
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+{{- end }}

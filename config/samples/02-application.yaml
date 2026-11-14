@@ -1,0 +1,101 @@
+# Shipped together with the application (e.g. in its ArgoCD Application).
+apiVersion: zitadel.zitadel-operator.io/v1alpha1
+kind: ZitadelProject
+metadata:
+  name: shop
+  namespace: shop
+spec:
+  connectionRef:
+    name: main
+  roles:
+    - key: admin
+      displayName: Administrator
+    - key: customer
+  projectRoleAssertion: true
+---
+# Confidential web application (authorization code flow).
+apiVersion: zitadel.zitadel-operator.io/v1alpha1
+kind: ZitadelApplication
+metadata:
+  name: shop-web
+  namespace: shop
+spec:
+  projectRef:
+    name: shop
+  type: OIDC
+  oidc:
+    appType: WEB
+    authMethod: BASIC
+    redirectUris:
+      - https://shop.example.com/auth/callback
+    postLogoutRedirectUris:
+      - https://shop.example.com/
+    grantTypes: [AUTHORIZATION_CODE, REFRESH_TOKEN]
+    accessTokenType: JWT
+    idTokenRoleAssertion: true
+  secret:
+    name: shop-oidc
+    # Optional: shape the Secret for your application.
+    template:
+      OIDC_ISSUER: "{{ .Issuer }}"
+      OIDC_CLIENT_ID: "{{ .ClientID }}"
+      OIDC_CLIENT_SECRET: "{{ .ClientSecret }}"
+---
+# Single page application (public client, PKCE): no client secret.
+apiVersion: zitadel.zitadel-operator.io/v1alpha1
+kind: ZitadelApplication
+metadata:
+  name: shop-spa
+  namespace: shop
+spec:
+  projectRef:
+    name: shop
+  oidc:
+    appType: USER_AGENT
+    authMethod: NONE
+    redirectUris:
+      - https://shop.example.com/callback
+---
+# API (resource server) used to introspect tokens, authenticated with a JSON key.
+apiVersion: zitadel.zitadel-operator.io/v1alpha1
+kind: ZitadelApplication
+metadata:
+  name: shop-api
+  namespace: shop
+spec:
+  projectRef:
+    name: shop
+  type: API
+  api:
+    authMethod: PRIVATE_KEY_JWT
+---
+# Example consumer.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shop
+  namespace: shop
+spec:
+  selector:
+    matchLabels: {app: shop}
+  template:
+    metadata:
+      labels: {app: shop}
+    spec:
+      containers:
+        - name: shop
+          image: nginx
+          envFrom:
+            - secretRef:
+                name: shop-oidc
+          volumeMounts:
+            - name: api-key
+              mountPath: /etc/zitadel
+              readOnly: true
+      volumes:
+        - name: api-key
+          secret:
+            secretName: shop-api
+            items:
+              - key: key.json
+                path: key.json

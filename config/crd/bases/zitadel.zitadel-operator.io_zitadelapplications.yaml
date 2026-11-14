@@ -1,0 +1,332 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.23.0
+  name: zitadelapplications.zitadel.zitadel-operator.io
+spec:
+  group: zitadel.zitadel-operator.io
+  names:
+    categories:
+    - zitadel
+    kind: ZitadelApplication
+    listKind: ZitadelApplicationList
+    plural: zitadelapplications
+    shortNames:
+    - zapp
+    singular: zitadelapplication
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.type
+      name: Type
+      type: string
+    - jsonPath: .status.clientId
+      name: Client ID
+      type: string
+    - jsonPath: .status.secretName
+      name: Secret
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          ZitadelApplication is an application (OIDC client or API) in a Zitadel
+          project. Its credentials are written to a Secret in the same namespace.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ZitadelApplicationSpec defines the desired state of ZitadelApplication.
+            properties:
+              api:
+                description: API configuration (type API).
+                properties:
+                  authMethod:
+                    default: PRIVATE_KEY_JWT
+                    description: AuthMethod of the API client.
+                    enum:
+                    - BASIC
+                    - POST
+                    - NONE
+                    - PRIVATE_KEY_JWT
+                    type: string
+                type: object
+              connectionRef:
+                description: ConnectionRef to use with projectId.
+                properties:
+                  name:
+                    description: Name of the ZitadelConnection.
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+              deletionPolicy:
+                default: Delete
+                description: DeletionPolicy defines what happens in Zitadel when this
+                  object is deleted.
+                enum:
+                - Delete
+                - Retain
+                type: string
+              name:
+                description: |-
+                  Name of the application in Zitadel. Defaults to metadata.name.
+                  If an application with this name already exists in the project, it is adopted.
+                type: string
+              oidc:
+                description: OIDC configuration (type OIDC).
+                properties:
+                  accessTokenRoleAssertion:
+                    description: AccessTokenRoleAssertion adds roles to the access
+                      token.
+                    type: boolean
+                  accessTokenType:
+                    default: BEARER
+                    description: AccessTokenType issued to the client.
+                    enum:
+                    - BEARER
+                    - JWT
+                    type: string
+                  additionalOrigins:
+                    description: AdditionalOrigins allowed for CORS.
+                    items:
+                      type: string
+                    type: array
+                  appType:
+                    default: WEB
+                    description: AppType of the client.
+                    enum:
+                    - WEB
+                    - USER_AGENT
+                    - NATIVE
+                    type: string
+                  authMethod:
+                    default: BASIC
+                    description: AuthMethod of the client.
+                    enum:
+                    - BASIC
+                    - POST
+                    - NONE
+                    - PRIVATE_KEY_JWT
+                    type: string
+                  devMode:
+                    description: DevMode allows non-https redirect URIs.
+                    type: boolean
+                  grantTypes:
+                    description: GrantTypes. Defaults to [AUTHORIZATION_CODE].
+                    items:
+                      description: OIDCGrantType is an OAuth2 grant type.
+                      enum:
+                      - AUTHORIZATION_CODE
+                      - IMPLICIT
+                      - REFRESH_TOKEN
+                      - DEVICE_CODE
+                      - TOKEN_EXCHANGE
+                      type: string
+                    type: array
+                  idTokenRoleAssertion:
+                    description: IDTokenRoleAssertion adds roles to the ID token.
+                    type: boolean
+                  idTokenUserinfoAssertion:
+                    description: IDTokenUserinfoAssertion adds userinfo claims to
+                      the ID token.
+                    type: boolean
+                  postLogoutRedirectUris:
+                    description: PostLogoutRedirectURIs allowed after logout.
+                    items:
+                      type: string
+                    type: array
+                  redirectUris:
+                    description: RedirectURIs allowed after login.
+                    items:
+                      type: string
+                    type: array
+                  responseTypes:
+                    description: ResponseTypes. Defaults to [CODE].
+                    items:
+                      description: OIDCResponseType is an OAuth2 response type.
+                      enum:
+                      - CODE
+                      - ID_TOKEN
+                      - ID_TOKEN_TOKEN
+                      type: string
+                    type: array
+                type: object
+              organizationId:
+                description: OrganizationID of the project referenced by projectId.
+                  Defaults to the connection's organization.
+                type: string
+              projectId:
+                description: |-
+                  ProjectID of an existing Zitadel project not managed by this operator.
+                  Requires connectionRef.
+                type: string
+              projectRef:
+                description: ProjectRef references a ZitadelProject in the same namespace.
+                properties:
+                  name:
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+              secret:
+                description: Secret configures the generated Secret.
+                properties:
+                  annotations:
+                    additionalProperties:
+                      type: string
+                    description: Annotations added to the Secret (e.g. reloader annotations).
+                    type: object
+                  labels:
+                    additionalProperties:
+                      type: string
+                    description: Labels added to the Secret.
+                    type: object
+                  name:
+                    description: |-
+                      Name of the Secret, created in the namespace of the ZitadelApplication.
+                      Defaults to metadata.name of the ZitadelApplication.
+                    type: string
+                  template:
+                    additionalProperties:
+                      type: string
+                    description: |-
+                      Template maps Secret keys to Go templates. Available fields:
+                      .ClientID .ClientSecret .KeyJSON .Issuer .DiscoveryURL .ProjectID .AppID .OrganizationID .AppName.
+                      Example: {"OIDC_ISSUER_URL": "{{ .Issuer }}", "config.yaml": "clientId: {{ .ClientID }}"}.
+                      When empty the default keys are used: CLIENT_ID, CLIENT_SECRET, ISSUER,
+                      DISCOVERY_URL, PROJECT_ID, APP_ID, ORGANIZATION_ID and key.json.
+                    type: object
+                type: object
+              type:
+                default: OIDC
+                description: Type of application.
+                enum:
+                - OIDC
+                - API
+                type: string
+            type: object
+            x-kubernetes-validations:
+            - message: exactly one of projectRef or projectId must be set
+              rule: has(self.projectRef) != has(self.projectId)
+            - message: connectionRef is required when projectId is set
+              rule: '!has(self.projectId) || has(self.connectionRef)'
+            - message: oidc must not be set for API applications
+              rule: self.type != 'API' || !has(self.oidc)
+          status:
+            description: ZitadelApplicationStatus defines the observed state of ZitadelApplication.
+            properties:
+              appId:
+                description: AppID in Zitadel.
+                type: string
+              clientId:
+                description: ClientID of the application.
+                type: string
+              conditions:
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              connectionName:
+                description: ConnectionName used (kept for cleanup).
+                type: string
+              keyId:
+                description: KeyID of the current application key (PRIVATE_KEY_JWT).
+                type: string
+              observedGeneration:
+                format: int64
+                type: integer
+              organizationId:
+                description: OrganizationID owning the project.
+                type: string
+              projectId:
+                description: ProjectID the application belongs to.
+                type: string
+              secretName:
+                description: SecretName of the generated Secret.
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

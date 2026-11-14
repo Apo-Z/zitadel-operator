@@ -1,0 +1,21 @@
+# Installed once by the platform team (cluster-scoped).
+# The Secret holds the JSON key of a Zitadel service account with the
+# ORG_OWNER (or ORG_PROJECT_CREATOR + ORG_PROJECT_OWNER) role:
+#   kubectl -n zitadel-operator create secret generic zitadel-operator-credentials \
+#     --from-file=key.json=./service-account.json
+apiVersion: zitadel.zitadel-operator.io/v1alpha1
+kind: ZitadelConnection
+metadata:
+  name: main
+spec:
+  url: https://auth.example.com
+  # Optional: talk to Zitadel through the in-cluster service.
+  # internalURL: http://zitadel.zitadel.svc.cluster.local:8080
+  credentialsSecretRef:
+    name: zitadel-operator-credentials
+    namespace: zitadel-operator
+    key: key.json
+  # Optional: restrict which namespaces may use this connection.
+  allowedNamespaces:
+    - "team-*"
+    - shop

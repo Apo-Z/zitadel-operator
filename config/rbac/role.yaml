@@ -1,0 +1,54 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: zitadel-operator
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - zitadel.zitadel-operator.io
+  resources:
+  - zitadelapplications
+  - zitadelprojects
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - zitadel.zitadel-operator.io
+  resources:
+  - zitadelapplications/finalizers
+  - zitadelprojects/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - zitadel.zitadel-operator.io
+  resources:
+  - zitadelapplications/status
+  - zitadelconnections/status
+  - zitadelprojects/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - zitadel.zitadel-operator.io
+  resources:
+  - zitadelconnections
+  verbs:
+  - get
+  - list
+  - watch

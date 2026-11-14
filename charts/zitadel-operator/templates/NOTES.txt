@@ -1,0 +1,21 @@
+zitadel-operator is installed in namespace {{ .Release.Namespace }}.
+
+{{- if not .Values.connections }}
+
+Next step: create a ZitadelConnection pointing to your Zitadel instance, e.g.
+
+  kubectl -n {{ .Release.Namespace }} create secret generic zitadel-operator-credentials \
+    --from-file=key.json=./service-account-key.json
+
+  apiVersion: zitadel.zitadel-operator.io/v1alpha1
+  kind: ZitadelConnection
+  metadata:
+    name: main
+  spec:
+    url: https://auth.example.com
+    credentialsSecretRef:
+      name: zitadel-operator-credentials
+      namespace: {{ .Release.Namespace }}
+{{- end }}
+
+Then add ZitadelProject / ZitadelApplication resources to your application namespaces.

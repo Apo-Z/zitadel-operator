@@ -1,0 +1,46 @@
+{{- if .Values.credentials.create }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Values.credentials.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "zitadel-operator.labels" . | nindent 4 }}
+type: Opaque
+data:
+  key.json: {{ required "credentials.keyJSON is required when credentials.create is true" .Values.credentials.keyJSON | b64enc }}
+{{- end }}
+{{- range .Values.connections }}
+---
+apiVersion: zitadel.zitadel-operator.io/v1alpha1
+kind: ZitadelConnection
+metadata:
+  name: {{ required "connections[].name is required" .name }}
+  labels:
+    {{- include "zitadel-operator.labels" $ | nindent 4 }}
+  annotations:
+    # The CRDs are installed by the same release: create the connections afterwards.
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  url: {{ required "connections[].url is required" .url | quote }}
+  {{- with .internalURL }}
+  internalURL: {{ . | quote }}
+  {{- end }}
+  {{- with .organizationId }}
+  organizationId: {{ . | quote }}
+  {{- end }}
+  credentialsSecretRef:
+    {{- $ref := .credentialsSecretRef | default dict }}
+    name: {{ $ref.name | default $.Values.credentials.name }}
+    namespace: {{ $ref.namespace | default $.Release.Namespace }}
+    key: {{ $ref.key | default "key.json" }}
+  {{- with .allowedNamespaces }}
+  allowedNamespaces:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- if .insecureSkipTLSVerify }}
+  insecureSkipTLSVerify: true
+  {{- end }}
+{{- end }}
