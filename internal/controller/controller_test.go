@@ -28,6 +28,8 @@ type env struct {
 	conn *ZitadelConnectionReconciler
 	proj *ZitadelProjectReconciler
 	app  *ZitadelApplicationReconciler
+	org  *ZitadelOrganizationReconciler
+	smtp *ZitadelSMTPProviderReconciler
 }
 
 func newEnv(t *testing.T, objs ...client.Object) *env {
@@ -52,7 +54,8 @@ func newEnv(t *testing.T, objs ...client.Object) *env {
 	}
 	c := fake.NewClientBuilder().WithScheme(scheme).
 		WithObjects(append(base, objs...)...).
-		WithStatusSubresource(&zv1.ZitadelConnection{}, &zv1.ZitadelProject{}, &zv1.ZitadelApplication{}).
+		WithStatusSubresource(&zv1.ZitadelConnection{}, &zv1.ZitadelProject{}, &zv1.ZitadelApplication{},
+			&zv1.ZitadelOrganization{}, &zv1.ZitadelSMTPProvider{}).
 		Build()
 	z := newFakeZitadel()
 	e := &env{
@@ -60,6 +63,8 @@ func newEnv(t *testing.T, objs ...client.Object) *env {
 		conn: &ZitadelConnectionReconciler{Client: c, Clients: z},
 		proj: &ZitadelProjectReconciler{Client: c, Clients: z},
 		app:  &ZitadelApplicationReconciler{Client: c, APIReader: c, Clients: z},
+		org:  &ZitadelOrganizationReconciler{Client: c, APIReader: c, Clients: z},
+		smtp: &ZitadelSMTPProviderReconciler{Client: c, APIReader: c, Clients: z},
 	}
 	e.reconcile(e.conn, "", "main")
 	return e
