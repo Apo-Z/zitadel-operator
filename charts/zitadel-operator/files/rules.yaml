@@ -14,7 +14,9 @@
   - zitadel.zitadel-operator.io
   resources:
   - zitadelapplications
+  - zitadelorganizations
   - zitadelprojects
+  - zitadelsmtpproviders
   verbs:
   - get
   - list
@@ -25,7 +27,9 @@
   - zitadel.zitadel-operator.io
   resources:
   - zitadelapplications/finalizers
+  - zitadelorganizations/finalizers
   - zitadelprojects/finalizers
+  - zitadelsmtpproviders/finalizers
   verbs:
   - update
 - apiGroups:
@@ -33,7 +37,9 @@
   resources:
   - zitadelapplications/status
   - zitadelconnections/status
+  - zitadelorganizations/status
   - zitadelprojects/status
+  - zitadelsmtpproviders/status
   verbs:
   - get
   - patch

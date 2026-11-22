@@ -1,0 +1,61 @@
+# Instance configuration (cluster-scoped), usually next to the Zitadel deployment.
+# The connection's service account needs IAM_OWNER (e.g. the FirstInstance machine user).
+apiVersion: zitadel.zitadel-operator.io/v1alpha1
+kind: ZitadelOrganization
+metadata:
+  name: acme
+spec:
+  connectionRef:
+    name: main
+  default: true                 # default organization of the instance
+  # Policies are sent as-is (Zitadel API field names): give every field.
+  passwordComplexityPolicy:
+    minLength: 10
+    hasLowercase: true
+    hasUppercase: true
+    hasNumber: true
+    hasSymbol: false
+  lockoutPolicy:
+    maxPasswordAttempts: 5
+  identityProviders:
+    - name: google
+      type: Google
+      # Secret with CLIENT_ID and CLIENT_SECRET (e.g. an ExternalSecret).
+      credentialsSecretRef:
+        name: google-idp
+        namespace: zitadel
+      scopes: [openid, profile, email]
+      options:
+        isLinkingAllowed: true
+        isCreationAllowed: false
+        isAutoCreation: false
+        isAutoUpdate: false
+        autoLinking: AUTO_LINKING_OPTION_EMAIL
+  actions:
+    - name: groupsClaim
+      script: |
+        function groupsClaim(ctx, api) {
+          let groups = [];
+          (ctx.v1.user.grants && ctx.v1.user.grants.grants || []).forEach(g => groups.push(...g.roles));
+          api.v1.claims.setClaim('groups', groups);
+        }
+      triggers:
+        - flowType: "2"            # complement token
+          triggerTypes: ["4", "5"] # pre userinfo creation, pre access token creation
+---
+apiVersion: zitadel.zitadel-operator.io/v1alpha1
+kind: ZitadelSMTPProvider
+metadata:
+  name: mail
+spec:
+  connectionRef:
+    name: main
+  host: smtp.example.com:465
+  user: noreply@example.com
+  passwordSecretRef:
+    name: smtp
+    namespace: zitadel
+    key: password
+  senderAddress: noreply@example.com
+  senderName: ACME
+  replyToAddress: contact@example.com

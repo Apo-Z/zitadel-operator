@@ -25,6 +25,24 @@ Les identifiants d'administration Zitadel restent dans le namespace de l'opérat
 | `ZitadelConnection` | Cluster | URL de l'instance, identifiants (clé JSON de service account ou PAT), organisation par défaut, namespaces autorisés |
 | `ZitadelProject` | Namespace | Projet Zitadel + rôles + options (role assertion / role check / project check) |
 | `ZitadelApplication` | Namespace | Application `OIDC` (WEB, USER_AGENT, NATIVE) ou `API`, et le Secret généré |
+| `ZitadelOrganization` | Cluster | Organisation (et organisation par défaut de l'instance), politiques de mot de passe / verrouillage / connexion, fournisseurs d'identité (Google), actions et leurs déclencheurs |
+| `ZitadelSMTPProvider` | Cluster | Fournisseur e-mail SMTP de l'instance (activé par défaut) |
+
+`ZitadelOrganization` et `ZitadelSMTPProvider` configurent l'**instance** : le service account de la
+connexion doit être `IAM_OWNER` (par exemple le compte machine créé par `FirstInstance.Org.Machine`
+du chart Zitadel). Exemple : `config/samples/03-organization.yaml`.
+
+- Les éléments existants de même nom (organisation, fournisseur d'identité, action ; fournisseur SMTP
+  de même description ou de même hôte) sont adoptés.
+- Les politiques sont envoyées telles quelles (noms de champs de l'API Zitadel) : donner tous les
+  champs, un champ absent serait remis à sa valeur zéro. Seuls les champs donnés sont comparés.
+- Les secrets (identifiants des fournisseurs d'identité, mot de passe SMTP) sont lus dans des Secrets
+  (`credentialsSecretRef`, `passwordSecretRef`) ; leur empreinte est gardée dans le statut et ils sont
+  renvoyés à Zitadel quand ils changent (rotation), au plus tard à la resynchronisation suivante.
+- Fournisseurs d'identité et actions retirés de la liste sont supprimés s'ils avaient été créés ou
+  adoptés par la ressource ; les autres sont laissés. Sur un déclencheur, les actions non gérées par
+  la ressource sont conservées.
+- `deletionPolicy: Retain` par défaut : supprimer la ressource ne supprime rien dans Zitadel.
 
 ### Secret généré
 

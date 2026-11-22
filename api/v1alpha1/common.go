@@ -36,3 +36,16 @@ const (
 	// ZitadelApplication to force the rotation of its client secret / key.
 	AnnotationRotateSecret = "zitadel.zitadel-operator.io/rotate-secret"
 )
+
+// SecretKeyReference selects a key of a Secret (any namespace: used by cluster-scoped resources).
+type SecretKeyReference struct {
+	// Name of the Secret.
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+	// Namespace of the Secret.
+	// +kubebuilder:validation:MinLength=1
+	Namespace string `json:"namespace"`
+	// Key in the Secret.
+	// +kubebuilder:validation:MinLength=1
+	Key string `json:"key"`
+}

@@ -17,6 +17,7 @@ type fakeZitadel struct {
 	calls    map[string]int
 	// noOrgRead simulates a service account without org.read.
 	noOrgRead bool
+	instance  *fakeInstance
 }
 
 type fakeProject struct {
