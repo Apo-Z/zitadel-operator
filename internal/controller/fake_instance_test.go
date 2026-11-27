@@ -15,6 +15,7 @@ type fakeInstance struct {
 	defaultOrg string
 	policies   map[string]map[string]any // org/kind -> custom policy
 	idps       map[string]map[string]*fakeIDP
+	loginIDPs  map[string][]string // org -> IdP IDs linked to its login policy
 	actions    map[string]map[string]*zitadel.Action
 	flows      map[string]map[string][]string // org/flow -> trigger -> action IDs
 	email      map[string]*zitadel.EmailProvider
@@ -30,7 +31,7 @@ type fakeIDP struct {
 func (f *fakeZitadel) inst() *fakeInstance {
 	if f.instance == nil {
 		f.instance = &fakeInstance{orgs: map[string]string{"org-1": "ZITADEL"}, defaultOrg: "org-1",
-			policies: map[string]map[string]any{}, idps: map[string]map[string]*fakeIDP{},
+			policies: map[string]map[string]any{}, idps: map[string]map[string]*fakeIDP{}, loginIDPs: map[string][]string{},
 			actions: map[string]map[string]*zitadel.Action{}, flows: map[string]map[string][]string{},
 			email: map[string]*zitadel.EmailProvider{}, emailPwd: map[string]string{}}
 	}
@@ -150,6 +151,24 @@ func (f *fakeZitadel) DeleteIDP(_ context.Context, orgID, id string) error {
 	defer f.mu.Unlock()
 	f.track("DeleteIDP")
 	delete(f.inst().idps[orgID], id)
+	f.inst().loginIDPs[orgID] = slices.DeleteFunc(f.inst().loginIDPs[orgID], func(s string) bool { return s == id })
+	return nil
+}
+
+func (f *fakeZitadel) ListLoginPolicyIDPs(_ context.Context, orgID string) ([]string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.inst().loginIDPs[orgID]), nil
+}
+
+func (f *fakeZitadel) AddIDPToLoginPolicy(_ context.Context, orgID, idpID string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if _, custom := f.inst().policies[orgID+"/"+string(zitadel.PolicyLogin)]; !custom {
+		return &zitadel.Error{HTTPStatus: 404, Code: 5, Message: "login policy not found"}
+	}
+	f.track("AddIDPToLoginPolicy")
+	f.inst().loginIDPs[orgID] = append(f.inst().loginIDPs[orgID], idpID)
 	return nil
 }
 

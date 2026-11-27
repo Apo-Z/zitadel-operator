@@ -204,6 +204,10 @@ type InstanceAPI interface {
 	AddGoogleIDP(ctx context.Context, orgID string, idp GoogleIDP) (string, error)
 	UpdateGoogleIDP(ctx context.Context, orgID, id string, idp GoogleIDP) error
 	DeleteIDP(ctx context.Context, orgID, id string) error
+	// ListLoginPolicyIDPs returns the IDs of the providers linked to the custom
+	// login policy of the organization; AddIDPToLoginPolicy links one.
+	ListLoginPolicyIDPs(ctx context.Context, orgID string) ([]string, error)
+	AddIDPToLoginPolicy(ctx context.Context, orgID, idpID string) error
 
 	ListActions(ctx context.Context, orgID string) ([]Action, error)
 	CreateAction(ctx context.Context, orgID string, action Action) (string, error)
