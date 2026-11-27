@@ -177,6 +177,7 @@ func (r *ZitadelOrganizationReconciler) reconcileIDPs(ctx context.Context, api z
 	}
 	hashes := map[string]string{}
 	names := make([]string, 0, len(org.Spec.IdentityProviders))
+	ids := make([]string, 0, len(org.Spec.IdentityProviders)) // desired providers, to link to the login policy
 	for _, spec := range org.Spec.IdentityProviders {
 		names = append(names, spec.Name)
 		ref := spec.CredentialsSecretRef
@@ -213,14 +214,17 @@ func (r *ZitadelOrganizationReconciler) reconcileIDPs(ctx context.Context, api z
 		switch {
 		case !ok:
 			desired.ClientSecret = clientSecret
-			if _, err := api.AddGoogleIDP(ctx, orgID, desired); err != nil {
+			id, err := api.AddGoogleIDP(ctx, orgID, desired)
+			if err != nil {
 				return zitadelError(fmt.Sprintf("adding identity provider %q", spec.Name), err)
 			}
+			ids = append(ids, id)
 			logger.Info("created identity provider", "name", spec.Name)
 		default:
 			if cur.Config.Google == nil {
 				return newError(ReasonInvalidSpec, fmt.Errorf("identity provider %q exists with another type", spec.Name))
 			}
+			ids = append(ids, cur.ID)
 			secretChanged := hash != org.Status.CredentialsHashes[spec.Name]
 			if secretChanged || cur.Config.Google.ClientID != clientID ||
 				!sameSet(cur.Config.Google.Scopes, desired.Scopes) || objectDiffers(options, cur.Config.Options) {
@@ -244,11 +248,44 @@ func (r *ZitadelOrganizationReconciler) reconcileIDPs(ctx context.Context, api z
 		}
 		logger.Info("deleted identity provider", "name", name)
 	}
+	if err := r.linkIDPsToLoginPolicy(ctx, api, org, orgID, ids); err != nil {
+		return err
+	}
 	slices.Sort(names)
 	org.Status.ManagedIdentityProviders = names
 	org.Status.CredentialsHashes = hashes
 	if len(hashes) == 0 {
 		org.Status.CredentialsHashes = nil
+	}
+	return nil
+}
+
+// linkIDPsToLoginPolicy adds the desired providers to the login policy of the
+// organization: a provider is only offered on the login page once linked.
+// Providers deleted from the spec are unlinked by Zitadel when deleted.
+func (r *ZitadelOrganizationReconciler) linkIDPsToLoginPolicy(ctx context.Context, api zitadel.API, org *zv1.ZitadelOrganization, orgID string, ids []string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	_, isDefault, err := api.GetPolicy(ctx, orgID, zitadel.PolicyLogin)
+	if err != nil {
+		return zitadelError("reading login policy", err)
+	}
+	if isDefault {
+		return newError(ReasonInvalidSpec, fmt.Errorf("identityProviders need spec.loginPolicy: providers are linked to the login policy of the organization"))
+	}
+	linked, err := api.ListLoginPolicyIDPs(ctx, orgID)
+	if err != nil {
+		return zitadelError("listing login policy identity providers", err)
+	}
+	for _, id := range ids {
+		if slices.Contains(linked, id) {
+			continue
+		}
+		if err := api.AddIDPToLoginPolicy(ctx, orgID, id); err != nil {
+			return zitadelError("adding identity provider to login policy", err)
+		}
+		log.FromContext(ctx).Info("added identity provider to login policy", "idpID", id)
 	}
 	return nil
 }

@@ -117,6 +117,35 @@ func (c *Client) DeleteIDP(ctx context.Context, orgID, id string) error {
 	return c.do(ctx, http.MethodDelete, p("/management/v1/idps/templates/%s", id), orgID, nil, nil)
 }
 
+// ListLoginPolicyIDPs returns the IDs of the identity providers shown on the
+// login page of the organization (its custom login policy).
+func (c *Client) ListLoginPolicyIDPs(ctx context.Context, orgID string) ([]string, error) {
+	var out struct {
+		Result []struct {
+			IDPID string `json:"idpId"`
+		} `json:"result"`
+	}
+	if err := c.do(ctx, http.MethodPost, "/management/v1/policies/login/idps/_search", orgID, listAll, &out); err != nil {
+		return nil, err
+	}
+	ids := make([]string, 0, len(out.Result))
+	for _, r := range out.Result {
+		ids = append(ids, r.IDPID)
+	}
+	return ids, nil
+}
+
+// AddIDPToLoginPolicy adds an identity provider of the organization to its
+// custom login policy, so that it is offered on the login page.
+func (c *Client) AddIDPToLoginPolicy(ctx context.Context, orgID, idpID string) error {
+	body := map[string]any{"idpId": idpID, "ownerType": "IDP_OWNER_TYPE_ORG"}
+	err := c.do(ctx, http.MethodPost, "/management/v1/policies/login/idps", orgID, body, nil)
+	if IsAlreadyExists(err) {
+		return nil
+	}
+	return err
+}
+
 // ListActions returns the actions of an organization.
 func (c *Client) ListActions(ctx context.Context, orgID string) ([]Action, error) {
 	var out struct {

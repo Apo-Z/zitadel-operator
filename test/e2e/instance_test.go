@@ -162,6 +162,9 @@ func TestE2EInstance(t *testing.T) {
 		idps[0].Config.Options["autoLinking"] != "AUTO_LINKING_OPTION_EMAIL" {
 		t.Fatalf("idps %+v: %v", idps, err)
 	}
+	if linked, err := api.ListLoginPolicyIDPs(ctx, orgID); err != nil || !slices.Equal(linked, []string{idps[0].ID}) {
+		t.Fatalf("login policy idps %v (want %s): %v", linked, idps[0].ID, err)
+	}
 	actions, err := api.ListActions(ctx, orgID)
 	if err != nil || len(actions) != 1 || actions[0].Script != script || actions[0].Timeout != "10s" {
 		t.Fatalf("actions %+v: %v", actions, err)

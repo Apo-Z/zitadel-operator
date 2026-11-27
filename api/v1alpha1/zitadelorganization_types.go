@@ -117,8 +117,10 @@ type ZitadelOrganizationSpec struct {
 	// +optional
 	LoginPolicy *runtime.RawExtension `json:"loginPolicy,omitempty"`
 
-	// IdentityProviders of the organization. Providers created by the operator and
-	// later removed from this list are deleted; other providers are left untouched.
+	// IdentityProviders of the organization, each added to the login policy of the
+	// organization (offered on the login page; needs loginPolicy). Providers created
+	// by the operator and later removed from this list are deleted; other providers
+	// are left untouched.
 	// +listType=map
 	// +listMapKey=name
 	// +optional

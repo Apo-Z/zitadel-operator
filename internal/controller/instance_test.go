@@ -77,6 +77,9 @@ func TestOrganizationLifecycle(t *testing.T) {
 	if idp == nil || idp.idp.ClientID != "client-1" || idp.secret != "secret-1" || idp.idp.ProviderOptions["autoLinking"] != "AUTO_LINKING_OPTION_EMAIL" {
 		t.Fatalf("unexpected idp %+v", idp)
 	}
+	if !slices.Equal(in.loginIDPs[id], []string{idp.id}) {
+		t.Fatalf("identity provider not linked to the login policy: %v", in.loginIDPs[id])
+	}
 	var actionID string
 	for aid := range in.actions[id] {
 		actionID = aid
@@ -104,6 +107,13 @@ func TestOrganizationLifecycle(t *testing.T) {
 		t.Fatalf("drift not corrected: %+v %+v", in.policies[id+"/login"], idp)
 	}
 
+	// Unlinked from the login policy (by hand): linked again.
+	in.loginIDPs[id] = nil
+	e.reconcile(e.org, "", "noor")
+	if !slices.Equal(in.loginIDPs[id], []string{idp.id}) {
+		t.Fatalf("identity provider not linked again: %v", in.loginIDPs[id])
+	}
+
 	// Rotated client secret is sent again.
 	s := idpSecret("client-1", "secret-2")
 	if err := e.c.Update(e.ctx, s); err != nil {
@@ -128,7 +138,7 @@ func TestOrganizationLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	e.reconcile(e.org, "", "noor")
-	if len(in.actions[id]) != 0 || len(in.idps[id]) != 0 || !slices.Equal(in.flows[id+"/2"]["4"], []string{"external-action"}) {
+	if len(in.actions[id]) != 0 || len(in.idps[id]) != 0 || len(in.loginIDPs[id]) != 0 || !slices.Equal(in.flows[id+"/2"]["4"], []string{"external-action"}) {
 		t.Fatalf("not cleaned up: actions %+v idps %+v flows %+v", in.actions[id], in.idps[id], in.flows)
 	}
 
